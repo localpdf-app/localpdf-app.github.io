@@ -1388,3 +1388,20 @@
   </script>
 </body>
 </html>
+<!-- Biblioteca do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  // Conecta ao seu projeto
+  const SUPABASE_URL = 'https://nypljzrgsbmdqdhwuqlo.supabase.co';
+  const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANON_AQUI'; // Pegue em Settings > API no Supabase
+
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Envia a informação de acesso para a tabela
+  async function registrarAcesso() {
+    await supabase.from('acessos').insert([{ acao: 'Acesso ao site' }]);
+  }
+
+  window.addEventListener('DOMContentLoaded', registrarAcesso);
+</script>
