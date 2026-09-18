@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalPDF - Editor, Juntador e Compressor 100% Privado</title>
+  <meta name="description" content="Edite documentos PDF online gratuitamente, altere textos, junte, compacte, faça OCR e assine sem criar conta. Seus arquivos não saem do seu computador.">
+  <meta name="keywords" content="LocalPDF, ANES, editar pdf gratis, editor pdf online, juntar pdf, compactar pdf, alterar metadados pdf, ocr pdf, assinar pdf gratis">
+  <meta name="theme-color" content="#2563eb">
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- SDK do Supabase para Métricas -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    :root {
+      --bg-primary: #f8fafc; --bg-surface: #ffffff; --text-primary: #0f172a;
+      --text-secondary: #475569; --border-color: #e2e8f0; --accent-blue: #2563eb;
+    }
+    body.dark-mode {
+      --bg-primary: #0f172a; --bg-surface: #1e293b; --text-primary: #f8fafc;
+      --text-secondary: #94a3b8; --border-color: #334155; --accent-blue: #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-primary); color: var(--text-primary); display: flex; flex-direction: column; min-height: 100vh; transition: background 0.2s, color 0.2s; }
+
+    .top-promo-bar {
+      background: #eff6ff; color: #1e40af; border-bottom: 1px solid #bfdbfe; font-size: 11px;
+      font-weight: 600; text-align: center; padding: 6px 12px; display: flex; justify-content: center; align-items: center; gap: 8px;
+    }
+
+    header {
+      background: var(--bg-surface); padding: 8px 20px; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 2px rgba(0,0,0,0.03); z-index: 10; flex-wrap: wrap; gap: 10px;
+    }
+
+    .brand-container { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 800; font-size: 20px; color: var(--accent-blue); letter-spacing: -0.5px; }
+    .security-badge {
+      display: inline-flex; align-items: center; gap: 5px; background: #f0fdf4; color: #166534;
+      border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+
+    .toolbar-group { display: flex; align-items: center; gap: 6px; background: var(--bg-primary); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color); }
+
+    button, label.btn {
+      background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px;
+      cursor: pointer; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+      user-select: none; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    button:hover, label.btn:hover { background: var(--bg-primary); border-color: #94a3b8; }
+    button:disabled { opacity: 0.45 !important; cursor: not-allowed !important; filter: grayscale(40%); }
+    button.active-tool { background: var(--accent-blue) !important; color: #ffffff !important; border-color: #1d4ed8 !important; }
+    button.btn-primary { background: var(--accent-blue); color: white; border-color: #1d4ed8; }
+    button.btn-green { background: #10b981; color: white; border-color: #059669; font-weight: 600; }
+    button.btn-red { background: #ef4444; color: white; border-color: #dc2626; font-weight: 500; }
+    input[type="file"] { display: none; }
+
+    .separator { width: 1px; height: 18px; background: var(--border-color); margin: 0 2px; }
+
+    #main-layout { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 80vh; }
+
+    .ad-banner-side {
+      width: 160px; background: var(--bg-primary); border-right: 1px solid var(--border-color); display: flex;
+      align-items: center; justify-content: center; font-size: 11px; color: var(--text-secondary); padding: 10px; text-align: center;
+    }
+    .ad-banner-right { border-right: none; border-left: 1px solid var(--border-color); }
+
+    #workspace {
+      flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start;
+      padding: 30px; background: #cbd5e1; position: relative;
+    }
+
+    #dropzone {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 90%; max-width: 540px; background: var(--bg-surface); border: 2px dashed #93c5fd; border-radius: 16px;
+      padding: 40px 30px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+      display: flex; flex-direction: column; align-items: center; gap: 16px; z-index: 5;
+    }
+    #dropzone.dragover { border-color: var(--accent-blue); background: #eff6ff; }
+    #dropzone h2 { font-size: 20px; color: var(--text-primary); font-weight: 700; }
+    #dropzone p { font-size: 13px; color: var(--text-secondary); max-width: 400px; line-height: 1.5; }
+
+    .action-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 10px; }
+    .action-card { background: var(--bg-primary); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; cursor: pointer; text-align: left; }
+    .action-card:hover { border-color: var(--accent-blue); }
+    .action-card h4 { font-size: 13px; color: var(--text-primary); margin-bottom: 2px; }
+    .action-card p { font-size: 11px; color: var(--text-secondary); margin: 0; }
+
+    #page-wrapper { transform-origin: top center; transition: transform 0.1s ease-out; display: none; }
+    #page-container { position: relative; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); background: #ffffff; border-radius: 2px; }
+    canvas { display: block; }
+
+    #native-text-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; }
+    .pdf-text-token { position: absolute; cursor: text; box-sizing: border-box; border-radius: 2px; }
+    .pdf-text-token:hover { outline: 1px dashed var(--accent-blue); background-color: rgba(37, 99, 235, 0.12); }
+
+    #draw-surface { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 25; cursor: crosshair; display: none; touch-action: none; }
+    #edits-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; }
+
+    .edit-box {
+      position: absolute; background: #ffffff; border: 1px dashed transparent; display: flex;
+      align-items: center; box-sizing: border-box; pointer-events: auto; z-index: 35;
+    }
+    .edit-box:hover, .edit-box.is-focused { border: 1px dashed var(--accent-blue); }
+    .edit-box.mode-erase { background: #ffffff !important; border: 1px dashed #ef4444; }
+
+    .edit-box input {
+      width: 100%; height: 100%; border: none; outline: none; background: transparent; padding: 0;
+      margin: 0; line-height: 1; cursor: text; vertical-align: baseline;
+      -webkit-font-smoothing: subpixel-antialiased;
+      -moz-osx-font-smoothing: auto;
+    }
+    .edit-box img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
+    .edit-box .btn-del {
+      position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; background: #ef4444; color: #fff;
+      border-radius: 50%; border: 1px solid #ffffff; font-size: 11px; line-height: 16px; text-align: center; cursor: pointer; display: none; z-index: 40;
+    }
+    .edit-box:hover .btn-del { display: block; }
+
+    #selection-rect {
+      position: absolute; border: 2px dashed #3b82f6; background: rgba(59, 130, 246, 0.15); pointer-events: none; display: none; z-index: 100;
+    }
+
+    .floating-toolbar {
+      position: absolute; display: none; gap: 6px; background: var(--bg-surface); border: 1px solid var(--border-color);
+      padding: 6px 10px; border-radius: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.12); z-index: 150; transform: translateY(-118%); align-items: center;
+    }
+    .color-dot { width: 14px; height: 14px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.2); }
+    .floating-toolbar select, .modal-content input { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; font-size: 12px; }
+
+    #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 300; }
+    .toast { background: #0f172a; color: white; padding: 10px 16px; border-radius: 8px; font-size: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 8px; }
+
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(2px); z-index: 200; justify-content: center; align-items: center; }
+    .modal-content { background: var(--bg-surface); color: var(--text-primary); padding: 24px; border-radius: 12px; min-width: 360px; max-width: 500px; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border-color); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    #signature-canvas { background: #f8fafc; border: 1px dashed var(--border-color); border-radius: 6px; cursor: crosshair; touch-action: none; max-width: 100%; }
+
+    .seo-content-section { background: var(--bg-surface); border-top: 1px solid var(--border-color); padding: 40px 20px; color: var(--text-secondary); line-height: 1.6; }
+    .seo-container { max-width: 900px; margin: 0 auto; }
+    .seo-container h2 { font-size: 22px; color: var(--text-primary); margin-bottom: 12px; }
+    .seo-container h3 { font-size: 16px; color: var(--text-primary); margin: 18px 0 8px 0; }
+    .seo-container p { font-size: 14px; margin-bottom: 12px; }
+    .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+    @media (max-width: 768px) { .faq-grid { grid-template-columns: 1fr; } }
+
+    footer { background: #0f172a; border-top: 1px solid var(--border-color); padding: 16px 20px; font-size: 12px; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    footer a { color: #38bdf8; text-decoration: none; margin-left: 12px; cursor: pointer; }
+    footer a:hover { text-decoration: underline; }
+
+    #processing-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.35);
+      display: none; z-index: 400; justify-content: center; align-items: center; flex-direction: column; gap: 12px;
+    }
+    #processing-overlay.show { display: flex; }
+    .spinner { width: 36px; height: 36px; border: 4px solid rgba(255,255,255,0.35); border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #processing-overlay span { color: #ffffff; font-size: 13px; font-weight: 600; background: rgba(15,23,42,0.6); padding: 6px 14px; border-radius: 20px; }
+
+    #consent-banner {
+      position: fixed; bottom: 0; left: 0; width: 100%; background: #0f172a; color: #e2e8f0; padding: 14px 20px;
+      display: none; z-index: 500; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.15); font-size: 12px;
+    }
+    #consent-banner.show { display: flex; }
+    #consent-banner p { max-width: 640px; line-height: 1.5; margin: 0; }
+    #consent-banner a { color: #38bdf8; text-decoration: underline; cursor: pointer; }
+    #consent-banner .consent-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .ad-banner-bottom {
+      display: none; width: 100%; background: var(--bg-primary); border-top: 1px solid var(--border-color); align-items: center;
+      justify-content: center; padding: 4px; min-height: 54px;
+    }
+
+    @media (max-width: 900px) { .ad-banner-side { width: 90px; } }
+    @media (max-width: 768px) {
+      header { padding: 8px 10px; justify-content: center; }
+      .brand-container { justify-content: center; width: 100%; }
+      header > div[style] { justify-content: center; width: 100%; }
+      .toolbar-group { padding: 3px; }
+      button, label.btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
+      .ad-banner-side { display: none; }
+      .ad-banner-bottom { display: flex; }
+      #main-layout { min-height: 70vh; }
+      #workspace { padding: 14px 8px 70px; }
+      .seo-content-section { padding: 28px 14px; }
+      .faq-grid { gap: 14px; }
+      .modal-content { min-width: 0; width: 92vw; max-width: 92vw; padding: 18px; }
+      .floating-toolbar { max-width: 94vw; flex-wrap: wrap; }
+      footer { flex-direction: column; text-align: center; padding: 14px 10px 90px; }
+      footer div { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+      footer a { margin-left: 0; }
+      #consent-banner { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+    }
+    @media (max-width: 480px) {
+      .brand { font-size: 16px; }
+      .security-badge { font-size: 10px; }
+      #dropzone { padding: 28px 16px; }
+      .action-cards { grid-template-columns: 1fr; }
+      #page-num { min-width: 40px !important; }
+    }
+    @media (hover: none) and (pointer: coarse) {
+      button, label.btn { min-height: 40px; }
+      .color-dot { width: 20px; height: 20px; }
+      .edit-box .btn-del { width: 24px; height: 24px; line-height: 22px; font-size: 14px; top: -10px; right: -10px; display: block; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-promo-bar">
+    ⚡ <strong>Sem Cadastro • 100% Gratuito • Processamento Ilimitado no seu Navegador</strong>
+  </div>
+
+  <header>
+    <div class="brand-container">
+      <div class="brand">LocalPDF</div>
+      <div class="security-badge"><span>🔒 100% Local</span></div>
+    </div>
+
+    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+      <div class="toolbar-group">
+        <label class="btn btn-primary">
+          📂 Abrir PDF
+          <input type="file" id="file-input" accept="application/pdf">
+        </label>
+        <button id="btn-merge-modal" class="btn" title="Juntar Múltiplos PDFs">🧩 Juntar PDFs</button>
+        <button id="btn-compress" class="btn" disabled title="Reduzir Tamanho do Arquivo">⚡ Compactar</button>
+        <button id="btn-clear-doc" class="btn btn-red" disabled title="Limpar Tela">🧹 Limpar</button>
+      </div>
+
+      <div class="toolbar-group">
+        <button id="tool-direct-edit" class="btn active-tool" disabled title="Editar texto original">🖱 Texto Direto</button>
+        <button id="tool-manual-box" class="btn" disabled title="Caixa de texto livre">✏ Arrastar (Scan)</button>
+        <button id="tool-erase-box" class="btn" disabled title="Cobrir mancha com fundo branco">🧹 Cobrir Branco</button>
+        <button id="tool-ocr-area" class="btn" disabled title="Reconhecer texto em imagem">🔍 OCR Recorte</button>
+      </div>
+
+      <div class="toolbar-group">
+        <button id="btn-edit-metadata" class="btn" disabled title="Editar Informações do Documento">🏷 Metadados</button>
+        <button id="btn-find-replace" class="btn" disabled title="Substituir palavras">🔍 Substituir</button>
+        <button id="btn-add-stamp" class="btn" disabled title="Inserir Assinatura">✍ Assinatura</button>
+      </div>
+
+      <div class="toolbar-group">
+        <button id="btn-toggle-dark" class="btn" title="Alternar Modo Escuro">🌙</button>
+        <button id="btn-zoom-out" class="btn" disabled>-</button>
+        <span id="zoom-label" style="font-size:11px; min-width:36px; text-align:center;">100%</span>
+        <button id="btn-zoom-in" class="btn" disabled>+</button>
+      </div>
+
+      <div class="toolbar-group">
+        <button id="btn-undo" class="btn" disabled title="Ctrl+Z">↺ Desfazer</button>
+        <button id="download-btn" class="btn btn-green" disabled title="Ctrl+S">💾 Salvar PDF</button>
+      </div>
+    </div>
+
+    <div class="toolbar-group">
+      <button id="prev-page" class="btn" disabled>&larr;</button>
+      <span id="page-num" style="font-size: 11px; min-width: 50px; text-align: center;">Pág 0/0</span>
+      <button id="next-page" class="btn" disabled>&rarr;</button>
+    </div>
+  </header>
+
+  <div id="main-layout">
+    <div class="ad-banner-side">
+      <ins class="adsbygoogle" style="display:block; width:160px; height:600px" data-ad-client="ca-pub-0000000000000000" data-ad-slot="0000000000"></ins>
+    </div>
+
+    <div id="workspace">
+      <div id="dropzone">
+        <div style="font-size: 38px;">🛡️</div>
+        <h2>Sua Suíte de PDF Local & Privada</h2>
+        <p>Edite, junte, compacte ou assine. Nenhum byte sai do seu computador.</p>
+        
+        <label class="btn btn-primary" style="padding: 10px 20px; font-size: 13px;">
+          Selecionar Documento PDF
+          <input type="file" id="dropzone-file-input" accept="application/pdf">
+        </label>
+
+        <div class="action-cards">
+          <div class="action-card" onclick="document.getElementById('btn-merge-modal').click()">
+            <h4>🧩 Juntar PDFs</h4>
+            <p>Combine vários arquivos em um só de forma instantânea.</p>
+          </div>
+          <div class="action-card" onclick="document.getElementById('dropzone-file-input').click()">
+            <h4>✏ Editar Texto</h4>
+            <p>Altere frases diretamente nas páginas sem reformatar.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-wrapper">
+        <div id="page-container">
+          <canvas id="pdf-render"></canvas>
+          <div id="native-text-layer"></div>
+          <div id="draw-surface"></div>
+          <div id="edits-layer"></div>
+          <div id="selection-rect"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ad-banner-side ad-banner-right">
+      <ins class="adsbygoogle" style="display:block; width:160px; height:600px" data-ad-client="ca-pub-0000000000000000" data-ad-slot="0000000000"></ins>
+    </div>
+  </div>
+
+  <div class="ad-banner-bottom">
+    <ins class="adsbygoogle" style="display:block; width:100%; max-width:320px; height:50px" data-ad-client="ca-pub-0000000000000000" data-ad-slot="0000000001" data-ad-format="horizontal"></ins>
+  </div>
+
+  <section class="seo-content-section">
+    <div class="seo-container">
+      <h2>Como Editar, Juntar e Compactar PDF Gratuitamente e com Segurança</h2>
+      <p>O LocalPDF foi desenvolvido por <strong>ANES (Antonio Neto E Souza)</strong> para oferecer uma solução de PDF completa diretamente no seu navegador, sem a necessidade de criar contas ou fazer upload de arquivos confidenciais para servidores externos.</p>
+      
+      <div class="faq-grid">
+        <div>
+          <h3>🔒 Segurança e Privacidade de Dados</h3>
+          <p>Diferente de outros editores online, o LocalPDF utiliza tecnologias web modernas (WebAssembly e PDF-Lib) que processam todas as edições localmente na memória do seu dispositivo. Seus contratos e documentos nunca saem do seu computador.</p>
+        </div>
+        <div>
+          <h3>🏷 Edição de Metadados PDF</h3>
+          <p>Altere o Título, Autor, Assunto e Palavras-chave dos seus documentos PDF. Ideal para otimização acadêmica, padronização de arquivos corporativos e organização de biblioteca digital.</p>
+        </div>
+        <div>
+          <h3>🔍 Leitura OCR Inteligente</h3>
+          <p>Possui documentos escaneados ou imagens convertidas em PDF? Utilize a ferramenta de OCR integrada para reconhecer e transcrever textos em imagens de forma simples e rápida.</p>
+        </div>
+        <div>
+          <h3>✍ Assinatura e Carimbo Digital</h3>
+          <p>Desenhe sua assinatura na tela ou suba uma imagem em PNG para assinar documentos digitais em instantes, mantendo a formatação original do arquivo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>LocalPDF © 2026 • Desenvolvido por <strong>ANES (Antonio Neto E Souza)</strong>.</span>
+    <div>
+      <a onclick="openLegalModal('privacidade')">Política de Privacidade</a>
+      <a onclick="openLegalModal('termos')">Termos de Uso</a>
+      <a onclick="openLegalModal('contato')">Contato</a>
+    </div>
+  </footer>
+
+  <div id="toast-container"></div>
+
+  <div id="processing-overlay">
+    <div class="spinner"></div>
+    <span id="processing-label">Processando...</span>
+  </div>
+
+  <div id="modal-ad-download" class="modal">
+    <div class="modal-content" style="text-align:center; max-width:420px;">
+      <h3 style="font-size:16px;">Otimizando seu PDF...</h3>
+      <p style="font-size:12px; color:var(--text-secondary);">Aguarde alguns instantes enquanto o arquivo é gerado localmente.</p>
+      
+      <div style="margin: 12px 0; background: var(--bg-primary); min-height: 250px; display:flex; align-items:center; justify-content:center; border: 1px dashed var(--border-color);">
+        <ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px" data-ad-client="ca-pub-0000000000000000" data-ad-slot="0000000002"></ins>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px; align-items:center;">
+        <span style="font-size:11px; color:var(--text-secondary);" id="ad-timer-text">Download iniciando em 3 segundos...</span>
+        <button id="btn-skip-download" class="btn btn-green" style="display:none; width:100%; justify-content:center; padding:8px;" onclick="executeDownload()">⬇️ Baixar PDF Agora</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="consent-banner">
+    <p>Usamos cookies e anúncios de terceiros (Google AdSense) para manter esta ferramenta gratuita. Seus arquivos PDF nunca saem do seu dispositivo — apenas dados de navegação podem ser usados para exibir anúncios. Veja nossa <a onclick="openLegalModal('privacidade')">Política de Privacidade</a>.</p>
+    <div class="consent-actions">
+      <button id="btn-consent-decline" class="btn">Recusar</button>
+      <button id="btn-consent-accept" class="btn btn-primary">Aceitar</button>
+    </div>
+  </div>
+
+  <div id="floating-bar" class="floating-toolbar">
+    <select id="font-family-select">
+      <option value="Helvetica">Arial / Standard</option>
+      <option value="Times">Times / Serif</option>
+      <option value="Courier">Courier / Monospace</option>
+    </select>
+    <input type="number" id="font-size-input" value="11" min="6" max="60" style="width:46px;">
+    <button id="btn-bold-toggle" class="btn" style="padding: 3px 8px; font-weight:bold;">B</button>
+    <div class="separator"></div>
+    <div class="color-dot" style="background: #000000;" data-color="0,0,0"></div>
+    <div class="color-dot" style="background: #008000;" data-color="0,0.5,0"></div>
+    <div class="color-dot" style="background: #003399;" data-color="0,0.2,0.6"></div>
+    <div class="color-dot" style="background: #cc0000;" data-color="0.8,0,0"></div>
+  </div>
+
+  <div id="modal-metadata" class="modal">
+    <div class="modal-content">
+      <h3 style="font-size: 15px;">Editar Metadados do PDF</h3>
+      <div>
+        <label style="font-size: 11px; color:var(--text-secondary);">Título do Documento:</label>
+        <input type="text" id="meta-title" placeholder="Ex: Relatório Anual" style="width:100%;">
+      </div>
+      <div>
+        <label style="font-size: 11px; color:var(--text-secondary);">Autor / Criador:</label>
+        <input type="text" id="meta-author" placeholder="Ex: João Silva" style="width:100%;">
+      </div>
+      <div>
+        <label style="font-size: 11px; color:var(--text-secondary);">Assunto / Descrição:</label>
+        <input type="text" id="meta-subject" placeholder="Ex: Finanças Empresariais" style="width:100%;">
+      </div>
+      <div>
+        <label style="font-size: 11px; color:var(--text-secondary);">Palavras-chave (separadas por vírgula):</label>
+        <input type="text" id="meta-keywords" placeholder="Ex: pdf, relatorio, 2026" style="width:100%;">
+      </div>
+      <div style="display:flex; justify-content: flex-end; gap:8px; margin-top:6px;">
+        <button id="btn-cancel-meta" class="btn">Cancelar</button>
+        <button id="btn-save-meta" class="btn btn-green">Salvar Metadados</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-find" class="modal">
+    <div class="modal-content">
+      <h3 style="font-size: 15px;">Substituir Palavras</h3>
+      <input type="text" id="find-search-txt" placeholder="Localizar palavra...">
+      <input type="text" id="find-replace-txt" placeholder="Substituir por...">
+      <div style="display:flex; justify-content: flex-end; gap:8px;">
+        <button id="btn-cancel-find" class="btn">Cancelar</button>
+        <button id="btn-exec-find" class="btn btn-green">Substituir em Tudo</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-stamp" class="modal">
+    <div class="modal-content">
+      <h3 style="font-size: 15px;">Inserir Assinatura</h3>
+      <canvas id="signature-canvas" width="300" height="120"></canvas>
+      <div style="display:flex; gap:6px;">
+        <button id="btn-clear-sig" class="btn">Limpar</button>
+        <label class="btn" style="font-size:11px;">Carregar PNG <input type="file" id="sig-file-input" accept="image/png,image/jpeg"></label>
+      </div>
+      <div style="display:flex; justify-content: flex-end; gap:8px;">
+        <button id="btn-cancel-sig" class="btn">Cancelar</button>
+        <button id="btn-apply-sig" class="btn btn-green">Inserir no PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-merge" class="modal">
+    <div class="modal-content">
+      <h3 style="font-size: 15px;">Juntar Múltiplos Documentos PDF</h3>
+      <p style="font-size:12px; color:var(--text-secondary);">Selecione os arquivos que deseja combinar no lote:</p>
+      <input type="file" id="merge-files-input" multiple accept="application/pdf" style="display:block;">
+      <ul id="merge-files-list" style="font-size:12px; max-height:120px; overflow-y:auto; padding-left:16px;"></ul>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button id="btn-cancel-merge" class="btn">Cancelar</button>
+        <button id="btn-exec-merge" class="btn btn-green">Combinar e Baixar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-legal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+      <h3 id="legal-title" style="font-size: 16px;">Informações Legais</h3>
+      <div id="legal-body" style="font-size: 13px; color:var(--text-secondary); max-height: 300px; overflow-y: auto; line-height: 1.5;"></div>
+      <div style="display:flex; justify-content: flex-end;">
+        <button onclick="document.getElementById('modal-legal').style.display='none'" class="btn btn-primary">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =======================================================
+       0. CONTADOR DE ACESSOS VIA SUPABASE
+       ======================================================= */
+    const SUPABASE_URL = 'https://nypljzrgsbmdqdhwuqlo.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55cGxqenJnc2JtZHFkaHd1cWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3MDAxMTgsImV4cCI6MjEwNTI3NjExOH0.607Hk80LC4txsUe2NuVrF7m-xb35KiKFJW1aJcLvYo8';
+
+    if (window.supabase) {
+      const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      async function contabilizarAcesso() {
+        try {
+          const { data, error } = await _supabase
+            .from('metricas')
+            .select('views')
+            .eq('id', 'localpdf')
+            .single();
+
+          if (error) {
+            console.warn('[LocalPDF] Tabela métricas não acessível:', error.message);
+            return;
+          }
+
+          const totalAtual = data ? data.views : 0;
+
+          await _supabase
+            .from('metricas')
+            .update({ views: totalAtual + 1 })
+            .eq('id', 'localpdf');
+
+          console.log(`[LocalPDF] Acesso registrado! Visitas até agora: ${totalAtual + 1}`);
+        } catch (err) {
+          console.error('[LocalPDF] Erro de conexão com Supabase:', err);
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', contabilizarAcesso);
+    }
+
+    /* =======================================================
+       1. CONFIGURAÇÕES E VARIÁVEIS DO EDITOR PDF
+       ======================================================= */
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let rawPdfBytes = null, pdfDoc = null, currentPageNum = 1, pageScale = 1.5, currentZoom = 1.0;
+    let activeTool = 'direct', editsRegistry = {}, undoHistory = [], activeBox = null;
+    let pdfMetaData = { title: '', author: '', subject: '', keywords: '' };
+    let loadedFileName = 'documento.pdf';
+    let fontInfoCache = {};
+
+    const fileInput = document.getElementById('file-input');
+    const dropzoneFileInput = document.getElementById('dropzone-file-input');
+    const dropzone = document.getElementById('dropzone');
+    const pageWrapper = document.getElementById('page-wrapper');
+    const toolDirectEdit = document.getElementById('tool-direct-edit');
+    const toolManualBox = document.getElementById('tool-manual-box');
+    const toolEraseBox = document.getElementById('tool-erase-box');
+    const toolOcrArea = document.getElementById('tool-ocr-area');
+    const btnUndo = document.getElementById('btn-undo');
+    const btnClearDoc = document.getElementById('btn-clear-doc');
+    const downloadBtn = document.getElementById('download-btn');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const pageNumDisplay = document.getElementById('page-num');
+    const pageContainer = document.getElementById('page-container');
+    const canvas = document.getElementById('pdf-render');
+    const ctx = canvas.getContext('2d');
+    const nativeTextLayer = document.getElementById('native-text-layer');
+    const drawSurface = document.getElementById('draw-surface');
+    const editsLayer = document.getElementById('edits-layer');
+    const selectionRect = document.getElementById('selection-rect');
+    const floatingBar = document.getElementById('floating-bar');
+    const fontFamilySelect = document.getElementById('font-family-select');
+    const btnBoldToggle = document.getElementById('btn-bold-toggle');
+    const fontSizeInput = document.getElementById('font-size-input');
+
+    document.getElementById('btn-toggle-dark').onclick = () => {
+      document.body.classList.toggle('dark-mode');
+    };
+
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `<span>ℹ️</span> ${message}`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    const processingOverlay = document.getElementById('processing-overlay');
+    const processingLabel = document.getElementById('processing-label');
+    function showProcessing(label) {
+      processingLabel.textContent = label || 'Processando...';
+      processingOverlay.classList.add('show');
+    }
+    function hideProcessing() { processingOverlay.classList.remove('show'); }
+
+    const consentBanner = document.getElementById('consent-banner');
+    try {
+      if (!localStorage.getItem('pdfedit_consent')) {
+        consentBanner.classList.add('show');
+      }
+    } catch (e) {}
+
+    function setConsent(value) {
+      try { localStorage.setItem('pdfedit_consent', value); } catch (e) {}
+      consentBanner.classList.remove('show');
+    }
+    document.getElementById('btn-consent-accept').onclick = () => setConsent('accepted');
+    document.getElementById('btn-consent-decline').onclick = () => setConsent('declined');
+
+    function getPointFromEvent(e, referenceEl) {
+      const rect = referenceEl.getBoundingClientRect();
+      if (e.touches && e.touches.length) {
+        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+      }
+      if (e.changedTouches && e.changedTouches.length) {
+        return { x: e.changedTouches[0].clientX - rect.left, y: e.changedTouches[0].clientY - rect.top };
+      }
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    const MAX_FILE_SIZE_MB = 60;
+
+    async function loadPdfFile(file) {
+      if (!file) return;
+
+      if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        showToast("Selecione um arquivo PDF válido.");
+        return;
+      }
+
+      const sizeMB = file.size / (1024 * 1024);
+      if (sizeMB > MAX_FILE_SIZE_MB) {
+        showToast(`Arquivo muito grande (${sizeMB.toFixed(0)}MB). O limite recomendado é ${MAX_FILE_SIZE_MB}MB.`);
+        return;
+      }
+
+      showProcessing('Abrindo documento...');
+      loadedFileName = file.name;
+
+      try {
+        rawPdfBytes = await file.arrayBuffer();
+        pdfDoc = await pdfjsLib.getDocument({ data: rawPdfBytes.slice(0) }).promise;
+      } catch (err) {
+        hideProcessing();
+        if (err && err.name === 'PasswordException') {
+          showToast("Este PDF está protegido por senha e não pode ser editado aqui.");
+        } else {
+          showToast("Não foi possível abrir este arquivo.");
+        }
+        rawPdfBytes = null; pdfDoc = null;
+        return;
+      }
+
+      currentPageNum = 1; editsRegistry = {}; undoHistory = [];
+      Object.keys(fontInfoCache).forEach(k => delete fontInfoCache[k]);
+
+      try {
+        const metadata = await pdfDoc.getMetadata();
+        const info = metadata ? metadata.info : {};
+
+        pdfMetaData.title = info && info.Title ? info.Title : loadedFileName.replace('.pdf', '');
+        pdfMetaData.author = info && info.Author ? info.Author : 'Desconhecido';
+        pdfMetaData.subject = info && info.Subject ? info.Subject : 'Documento PDF';
+        pdfMetaData.keywords = info && info.Keywords ? info.Keywords : '';
+      } catch (err) {
+        pdfMetaData.title = loadedFileName.replace('.pdf', '');
+        pdfMetaData.author = 'Desconhecido';
+        pdfMetaData.subject = 'Documento PDF';
+        pdfMetaData.keywords = '';
+      }
+
+      dropzone.style.display = 'none';
+      pageWrapper.style.display = 'block';
+
+      enableControls();
+      setTool('direct');
+      try {
+        await renderPage(currentPageNum);
+        showToast("Documento carregado em ambiente seguro local.");
+      } catch (err) {
+        showToast("Erro ao renderizar o PDF.");
+      } finally {
+        hideProcessing();
+      }
+    }
+
+    fileInput.addEventListener('change', (e) => loadPdfFile(e.target.files[0]));
+    dropzoneFileInput.addEventListener('change', (e) => loadPdfFile(e.target.files[0]));
+
+    const workspace = document.getElementById('workspace');
+    workspace.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    workspace.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    workspace.addEventListener('drop', (e) => {
+      e.preventDefault(); dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) loadPdfFile(e.dataTransfer.files[0]);
+    });
+
+    function enableControls() {
+      [toolDirectEdit, toolManualBox, toolEraseBox, toolOcrArea, downloadBtn, btnClearDoc,
+       document.getElementById('btn-compress'), document.getElementById('btn-edit-metadata'), 
+       document.getElementById('btn-find-replace'), document.getElementById('btn-add-stamp'), 
+       document.getElementById('btn-zoom-in'), document.getElementById('btn-zoom-out')].forEach(b => b.disabled = false);
+    }
+
+    btnClearDoc.onclick = () => {
+      const hasEdits = Object.values(editsRegistry).some(page => Object.keys(page || {}).some(k => k.startsWith('manual_') || k.startsWith('stamp_') || (page[k] && page[k].type === 'text' && page[k].text !== page[k].originalText)));
+      if (hasEdits && !window.confirm('Você tem edições não salvas neste documento. Deseja continuar?')) {
+        return;
+      }
+      rawPdfBytes = null; pdfDoc = null; currentPageNum = 1; editsRegistry = {}; undoHistory = [];
+      fileInput.value = ''; dropzoneFileInput.value = '';
+
+      nativeTextLayer.innerHTML = ''; editsLayer.innerHTML = '';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pageContainer.style.width = '0px'; pageContainer.style.height = '0px';
+
+      pageWrapper.style.display = 'none';
+      dropzone.style.display = 'flex';
+
+      [toolDirectEdit, toolManualBox, toolEraseBox, toolOcrArea, downloadBtn, btnUndo, btnClearDoc,
+       document.getElementById('btn-compress'), document.getElementById('btn-edit-metadata'), 
+       document.getElementById('btn-find-replace'), document.getElementById('btn-add-stamp'), 
+       document.getElementById('btn-zoom-in'), document.getElementById('btn-zoom-out'), 
+       prevPageBtn, nextPageBtn].forEach(b => b.disabled = true);
+
+      pageNumDisplay.textContent = 'Pág 0/0';
+      showToast("Tela limpa! Você pode abrir um novo documento.");
+    };
+
+    const modalMetadata = document.getElementById('modal-metadata');
+    document.getElementById('btn-edit-metadata').onclick = () => {
+      document.getElementById('meta-title').value = pdfMetaData.title || '';
+      document.getElementById('meta-author').value = pdfMetaData.author || '';
+      document.getElementById('meta-subject').value = pdfMetaData.subject || '';
+      document.getElementById('meta-keywords').value = pdfMetaData.keywords || '';
+      modalMetadata.style.display = 'flex';
+    };
+    document.getElementById('btn-cancel-meta').onclick = () => modalMetadata.style.display = 'none';
+    document.getElementById('btn-save-meta').onclick = () => {
+      pdfMetaData.title = document.getElementById('meta-title').value;
+      pdfMetaData.author = document.getElementById('meta-author').value;
+      pdfMetaData.subject = document.getElementById('meta-subject').value;
+      pdfMetaData.keywords = document.getElementById('meta-keywords').value;
+      modalMetadata.style.display = 'none';
+      showToast("Metadados atualizados com sucesso.");
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); triggerUndo(); }
+      if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); downloadBtn.click(); }
+      if (e.key === 'ArrowLeft' && currentPageNum > 1) { renderPage(--currentPageNum); }
+      if (e.key === 'ArrowRight' && pdfDoc && currentPageNum < pdfDoc.numPages) { renderPage(++currentPageNum); }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && activeBox) { deleteActiveBox(); }
+      if (e.key === 'Escape') { setTool('direct'); deselectAll(); }
+    });
+
+    document.getElementById('btn-zoom-in').onclick = () => setZoom(currentZoom + 0.15);
+    document.getElementById('btn-zoom-out').onclick = () => setZoom(currentZoom - 0.15);
+
+    function setZoom(z) {
+      currentZoom = Math.min(Math.max(0.6, z), 2.2);
+      pageWrapper.style.transform = `scale(${currentZoom})`;
+      document.getElementById('zoom-label').textContent = Math.round(currentZoom * 100) + '%';
+    }
+
+    function setTool(toolName) {
+      activeTool = toolName;
+      toolDirectEdit.classList.toggle('active-tool', toolName === 'direct');
+      toolManualBox.classList.toggle('active-tool', toolName === 'manual');
+      toolEraseBox.classList.toggle('active-tool', toolName === 'erase');
+      toolOcrArea.classList.toggle('active-tool', toolName === 'ocr');
+
+      if (toolName === 'direct') {
+        drawSurface.style.display = 'none';
+        nativeTextLayer.style.pointerEvents = 'auto';
+      } else {
+        drawSurface.style.display = 'block';
+        nativeTextLayer.style.pointerEvents = 'none';
+        deselectAll();
+      }
+    }
+
+    toolDirectEdit.onclick = () => setTool('direct');
+    toolManualBox.onclick = () => setTool('manual');
+    toolEraseBox.onclick = () => setTool('erase');
+    toolOcrArea.onclick = () => setTool('ocr');
+
+    function deselectAll() {
+      document.querySelectorAll('.edit-box').forEach(b => b.classList.remove('is-focused'));
+      floatingBar.style.display = 'none';
+      activeBox = null;
+    }
+
+    workspace.addEventListener('click', (e) => {
+      if (!e.target.closest('.edit-box') && !e.target.closest('#floating-bar') && !e.target.closest('.pdf-text-token')) deselectAll();
+    });
+
+    async function renderPage(num) {
+      const page = await pdfDoc.getPage(num);
+      const viewport = page.getViewport({ scale: pageScale });
+
+      canvas.height = viewport.height; canvas.width = viewport.width;
+      pageContainer.style.width = viewport.width + 'px'; pageContainer.style.height = viewport.height + 'px';
+
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+      nativeTextLayer.innerHTML = ''; editsLayer.innerHTML = ''; floatingBar.style.display = 'none';
+
+      const textContent = await page.getTextContent();
+      buildNativeTextLayer(textContent, viewport, num, page);
+
+      if (editsRegistry[num]) Object.values(editsRegistry[num]).forEach(item => mountEditBox(item));
+
+      pageNumDisplay.textContent = `Pág ${num}/${pdfDoc.numPages}`;
+      prevPageBtn.disabled = (num <= 1); nextPageBtn.disabled = (num >= pdfDoc.numPages);
+      btnUndo.disabled = (undoHistory.length === 0);
+    }
+
+    prevPageBtn.onclick = () => { if (currentPageNum > 1) renderPage(--currentPageNum); };
+    nextPageBtn.onclick = () => { if (currentPageNum < pdfDoc.numPages) renderPage(++currentPageNum); };
+
+    function detectSmartColor(x, y, w, h) {
+      const safeX = Math.max(0, Math.floor(x)), safeY = Math.max(0, Math.floor(y));
+      const safeW = Math.min(canvas.width - safeX, Math.max(4, Math.floor(w)));
+      const safeH = Math.min(canvas.height - safeY, Math.max(4, Math.floor(h)));
+
+      const imgData = ctx.getImageData(safeX, safeY, safeW, safeH).data;
+      let bestPixel = null, maxSaturation = -1;
+
+      for (let i = 0; i < imgData.length; i += 16) {
+        const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
+        if (r > 235 && g > 235 && b > 235) continue;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b), diff = max - min;
+        if (diff > maxSaturation) { maxSaturation = diff; bestPixel = { r, g, b }; }
+      }
+
+      if (bestPixel && maxSaturation > 20) {
+        return { r: bestPixel.r / 255, g: bestPixel.g / 255, b: bestPixel.b / 255, hex: `rgb(${bestPixel.r}, ${bestPixel.g}, ${bestPixel.b})` };
+      }
+      return { r: 0, g: 0, b: 0, hex: '#000000' };
+    }
+
+    function getRealFontInfo(page, item, cacheKey) {
+      if (fontInfoCache[cacheKey] !== undefined) return fontInfoCache[cacheKey];
+      let info = { name: '', bold: false };
+      try {
+        const fontObj = page.commonObjs.get(item.fontName);
+        if (fontObj) {
+          info.name = (fontObj.name || fontObj.fallbackName || '').toLowerCase();
+          if (typeof fontObj.bold === 'boolean') info.bold = fontObj.bold;
+        }
+      } catch (e) {}
+      fontInfoCache[cacheKey] = info;
+      return info;
+    }
+
+    function detectBoldAndFamily(page, item, fontHeight, pageNum) {
+      const cacheKey = pageNum + '::' + item.fontName;
+      const fontInfo = getRealFontInfo(page, item, cacheKey);
+      const name = fontInfo.name;
+
+      let isBold = fontInfo.bold || name.includes('bold') || name.includes('black') || name.includes('heavy');
+      if (!isBold) {
+        isBold = item.str === item.str.toUpperCase() && item.str.length > 3 && item.width / item.str.length > fontHeight * 0.55;
+      }
+
+      let fontFamily = 'Helvetica';
+      if (name.includes('times') || name.includes('georgia') || name.includes('garamond') ||
+          name.includes('serif') || name.includes('cambria') || name.includes('minion')) {
+        fontFamily = 'Times';
+      } else if (name.includes('courier') || name.includes('mono') || name.includes('consolas')) {
+        fontFamily = 'Courier';
+      }
+
+      return { isBold, fontFamily };
+    }
+
+    function buildNativeTextLayer(textContent, viewport, pageNum, page) {
+      if (!editsRegistry[pageNum]) editsRegistry[pageNum] = {};
+
+      textContent.items.forEach((item, index) => {
+        if (!item.str || item.str.trim() === '') return;
+
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+        let left = tx[4], top = tx[5] - fontHeight;
+        let width = item.width * pageScale, height = fontHeight;
+
+        if (left >= canvas.width - 5 || top >= canvas.height - 5) return;
+        width = Math.min(width, canvas.width - left);
+
+        const { isBold, fontFamily } = detectBoldAndFamily(page, item, fontHeight, pageNum);
+
+        const detectedColor = detectSmartColor(left, top, width, height);
+        const id = `native_${pageNum}_${index}`;
+
+        if (editsRegistry[pageNum][id]) return;
+
+        const tokenDiv = document.createElement('div');
+        tokenDiv.className = 'pdf-text-token';
+        tokenDiv.style.left = left + 'px'; tokenDiv.style.top = top + 'px';
+        tokenDiv.style.width = width + 'px'; tokenDiv.style.height = height + 'px';
+
+        tokenDiv.onclick = () => {
+          saveUndoState();
+          const editData = {
+            id: id, type: 'text', originalText: item.str, text: item.str,
+            x: left, y: top, width: width, height: height,
+            fontSize: Math.round(fontHeight), fontFamily: fontFamily, isBold: isBold, color: detectedColor
+          };
+          editsRegistry[pageNum][id] = editData;
+          tokenDiv.remove();
+          mountEditBox(editData, true);
+        };
+
+        nativeTextLayer.appendChild(tokenDiv);
+      });
+    }
+
+    let isDrawing = false, startX = 0, startY = 0;
+
+    function handleDrawStart(e) {
+      const p = getPointFromEvent(e, drawSurface);
+      isDrawing = true; startX = p.x; startY = p.y;
+      selectionRect.style.left = startX + 'px'; selectionRect.style.top = startY + 'px';
+      selectionRect.style.width = '0px'; selectionRect.style.height = '0px';
+      selectionRect.style.display = 'block';
+      e.preventDefault();
+    }
+
+    function handleDrawMove(e) {
+      if (!isDrawing) return;
+      const p = getPointFromEvent(e, drawSurface);
+      const x = Math.min(startX, p.x), y = Math.min(startY, p.y);
+      const w = Math.abs(p.x - startX), h = Math.abs(p.y - startY);
+      selectionRect.style.left = x + 'px'; selectionRect.style.top = y + 'px';
+      selectionRect.style.width = w + 'px'; selectionRect.style.height = h + 'px';
+      e.preventDefault();
+    }
+
+    async function handleDrawEnd(e) {
+      if (!isDrawing) return;
+      isDrawing = false; selectionRect.style.display = 'none';
+
+      const rect = pageContainer.getBoundingClientRect();
+      const point = (e.changedTouches && e.changedTouches.length) ? e.changedTouches[0] : e;
+      const endX = Math.max(0, Math.min((point.clientX - rect.left) / currentZoom, canvas.width));
+      const endY = Math.max(0, Math.min((point.clientY - rect.top) / currentZoom, canvas.height));
+      const x = Math.min(startX, endX), y = Math.min(startY, endY);
+      const width = Math.abs(endX - startX), height = Math.abs(endY - startY);
+
+      if (width < 6 || height < 6) return;
+
+      saveUndoState();
+      const id = 'manual_' + Date.now();
+
+      if (activeTool === 'ocr') {
+        await executeCropOcr(x, y, width, height, id);
+      } else {
+        const item = {
+          id: id, type: activeTool === 'erase' ? 'erase' : 'text',
+          originalText: '', text: '', x, y, width, height,
+          fontSize: Math.max(9, Math.round(height * 0.7)),
+          fontFamily: fontFamilySelect.value || 'Helvetica', isBold: false,
+          color: { r: 0, g: 0, b: 0, hex: '#000000' }
+        };
+        if (!editsRegistry[currentPageNum]) editsRegistry[currentPageNum] = {};
+        editsRegistry[currentPageNum][id] = item;
+        mountEditBox(item, true);
+      }
+      setTool('direct');
+    }
+
+    drawSurface.addEventListener('mousedown', handleDrawStart);
+    drawSurface.addEventListener('mousemove', handleDrawMove);
+    window.addEventListener('mouseup', handleDrawEnd);
+
+    drawSurface.addEventListener('touchstart', handleDrawStart, { passive: false });
+    drawSurface.addEventListener('touchmove', handleDrawMove, { passive: false });
+    drawSurface.addEventListener('touchend', handleDrawEnd);
+    drawSurface.addEventListener('touchcancel', () => { isDrawing = false; selectionRect.style.display = 'none'; });
+
+    async function executeCropOcr(x, y, w, h, id) {
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = w; cropCanvas.height = h;
+      cropCanvas.getContext('2d').drawImage(canvas, x, y, w, h, 0, 0, w, h);
+
+      toolOcrArea.textContent = 'Reconhecendo...'; toolOcrArea.disabled = true;
+      showProcessing('Lendo texto na imagem (OCR)...');
+
+      try {
+        const worker = await Tesseract.createWorker('por');
+        const res = await worker.recognize(cropCanvas.toDataURL());
+        await worker.terminate();
+
+        const item = {
+          id: id, type: 'text', originalText: '', text: res.data.text.trim(),
+          x, y, width: w, height: h, fontSize: Math.max(9, Math.round(h * 0.7)),
+          fontFamily: fontFamilySelect.value || 'Helvetica', isBold: false,
+          color: { r: 0, g: 0, b: 0, hex: '#000000' }
+        };
+        if (!editsRegistry[currentPageNum]) editsRegistry[currentPageNum] = {};
+        editsRegistry[currentPageNum][id] = item;
+        mountEditBox(item, true);
+        showToast("Texto transcrito com sucesso.");
+      } catch (err) {
+        showToast("Falha no OCR.");
+      } finally {
+        toolOcrArea.textContent = '🔍 OCR Recorte'; toolOcrArea.disabled = false;
+        hideProcessing();
+      }
+    }
+
+    function getCssFontFamily(fontKey) {
+      if (fontKey === 'Times') return '"Times New Roman", Times, serif';
+      if (fontKey === 'Courier') return '"Courier New", Courier, monospace';
+      return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    }
+
+    function mountEditBox(data, autoFocus = false) {
+      const box = document.createElement('div');
+      box.className = `edit-box ${data.type === 'erase' ? 'mode-erase' : ''}`;
+      box.style.left = data.x + 'px'; box.style.top = data.y + 'px';
+      box.style.width = data.width + 'px'; box.style.height = data.height + 'px';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-del'; delBtn.innerHTML = '&times;';
+      delBtn.onclick = (e) => { e.stopPropagation(); deleteBoxData(data.id); };
+      box.appendChild(delBtn);
+
+      if (data.type === 'text') {
+        const input = document.createElement('input');
+        input.type = 'text'; input.value = data.text;
+        input.style.fontFamily = getCssFontFamily(data.fontFamily);
+        
+        const calcSize = Math.max(8, Math.round(data.fontSize * 0.92));
+        input.style.fontSize = calcSize + 'px';
+        input.style.color = data.color ? data.color.hex : '#000000';
+        
+        input.style.fontWeight = data.isBold ? '700' : '400';
+        input.style.textShadow = 'none';
+
+        input.style.lineHeight = '1';
+
+        input.oninput = (e) => {
+          data.text = e.target.value;
+          const calcWidth = Math.min(Math.max(input.scrollWidth + 4, data.width), canvas.width - data.x);
+          box.style.width = calcWidth + 'px'; data.width = calcWidth;
+        };
+
+        input.onfocus = () => {
+          deselectAll();
+          box.classList.add('is-focused');
+          activeBox = data;
+          floatingBar.style.display = 'flex';
+          floatingBar.style.left = Math.min(data.x, canvas.width - 240) + 'px';
+          floatingBar.style.top = data.y + 'px';
+          fontFamilySelect.value = data.fontFamily || 'Helvetica';
+          fontSizeInput.value = data.fontSize;
+          pageContainer.appendChild(floatingBar);
+        };
+
+        box.appendChild(input);
+        if (autoFocus) setTimeout(() => { input.focus(); input.select(); }, 50);
+      } else if (data.type === 'image') {
+        const img = document.createElement('img');
+        img.src = data.imgData;
+        box.appendChild(img);
+        box.onclick = () => { deselectAll(); box.classList.add('is-focused'); activeBox = data; };
+      }
+
+      editsLayer.appendChild(box);
+    }
+
+    function deleteActiveBox() { if (activeBox) deleteBoxData(activeBox.id); }
+
+    function deleteBoxData(id) {
+      saveUndoState();
+      delete editsRegistry[currentPageNum][id];
+      renderPage(currentPageNum);
+      showToast("Elemento removido.");
+    }
+
+    const modalFind = document.getElementById('modal-find');
+    document.getElementById('btn-find-replace').onclick = () => modalFind.style.display = 'flex';
+    document.getElementById('btn-cancel-find').onclick = () => modalFind.style.display = 'none';
+
+    document.getElementById('btn-exec-find').onclick = async () => {
+      const searchTxt = document.getElementById('find-search-txt').value.trim();
+      const replaceTxt = document.getElementById('find-replace-txt').value;
+      if (!searchTxt) return;
+
+      saveUndoState();
+      let totalCount = 0;
+
+      for (let p = 1; p <= pdfDoc.numPages; p++) {
+        const page = await pdfDoc.getPage(p);
+        const textContent = await page.getTextContent();
+        const viewport = page.getViewport({ scale: pageScale });
+
+        if (!editsRegistry[p]) editsRegistry[p] = {};
+
+        textContent.items.forEach((item, idx) => {
+          if (item.str && item.str.includes(searchTxt)) {
+            const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+            const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+            const { isBold, fontFamily } = detectBoldAndFamily(page, item, fontHeight, p);
+
+            const id = `native_${p}_${idx}`;
+
+            editsRegistry[p][id] = {
+              id: id, type: 'text', originalText: item.str,
+              text: item.str.replaceAll(searchTxt, replaceTxt),
+              x: tx[4], y: tx[5] - fontHeight, width: item.width * pageScale, height: fontHeight,
+              fontSize: Math.round(fontHeight), fontFamily: fontFamily, isBold: isBold,
+              color: { r: 0, g: 0, b: 0, hex: '#000000' }
+            };
+            totalCount++;
+          }
+        });
+      }
+
+      modalFind.style.display = 'none';
+      renderPage(currentPageNum);
+      showToast(`${totalCount} substituição(ões) efetuada(s).`);
+    };
+
+    const modalStamp = document.getElementById('modal-stamp');
+    const sigCanvas = document.getElementById('signature-canvas');
+    const sigCtx = sigCanvas.getContext('2d');
+    let isSigning = false;
+
+    document.getElementById('btn-add-stamp').onclick = () => {
+      modalStamp.style.display = 'flex';
+      sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+      sigCtx.lineWidth = 2; sigCtx.strokeStyle = '#000';
+    };
+
+    document.getElementById('btn-cancel-sig').onclick = () => modalStamp.style.display = 'none';
+    document.getElementById('btn-clear-sig').onclick = () => sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+
+    function sigStart(e) { const p = getPointFromEvent(e, sigCanvas); isSigning = true; sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); e.preventDefault(); }
+    function sigMove(e) { if (!isSigning) return; const p = getPointFromEvent(e, sigCanvas); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); }
+    function sigEnd() { isSigning = false; }
+
+    sigCanvas.addEventListener('mousedown', sigStart);
+    sigCanvas.addEventListener('mousemove', sigMove);
+    window.addEventListener('mouseup', sigEnd);
+
+    sigCanvas.addEventListener('touchstart', sigStart, { passive: false });
+    sigCanvas.addEventListener('touchmove', sigMove, { passive: false });
+    sigCanvas.addEventListener('touchend', sigEnd);
+
+    document.getElementById('sig-file-input').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+          sigCtx.drawImage(img, 0, 0, sigCanvas.width, sigCanvas.height);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    document.getElementById('btn-apply-sig').onclick = () => {
+      saveUndoState();
+      const dataUrl = sigCanvas.toDataURL('image/png');
+      const id = 'stamp_' + Date.now();
+      const item = {
+        id: id, type: 'image', imgData: dataUrl,
+        x: canvas.width / 2 - 75, y: canvas.height / 2 - 30, width: 150, height: 60
+      };
+      if (!editsRegistry[currentPageNum]) editsRegistry[currentPageNum] = {};
+      editsRegistry[currentPageNum][id] = item;
+      modalStamp.style.display = 'none';
+      mountEditBox(item);
+      showToast("Assinatura inserida.");
+    };
+
+    const modalMerge = document.getElementById('modal-merge');
+    const mergeInput = document.getElementById('merge-files-input');
+    const mergeList = document.getElementById('merge-files-list');
+
+    document.getElementById('btn-merge-modal').onclick = () => { modalMerge.style.display = 'flex'; };
+    document.getElementById('btn-cancel-merge').onclick = () => { modalMerge.style.display = 'none'; };
+
+    mergeInput.onchange = () => {
+      mergeList.innerHTML = '';
+      Array.from(mergeInput.files).forEach(f => {
+        const li = document.createElement('li');
+        li.textContent = f.name;
+        mergeList.appendChild(li);
+      });
+    };
+
+    document.getElementById('btn-exec-merge').onclick = async () => {
+      if (!mergeInput.files.length) return;
+      showProcessing('Combinando arquivos...');
+      try {
+        const mergedPdf = await PDFLib.PDFDocument.create();
+        for (const file of mergeInput.files) {
+          const bytes = await file.arrayBuffer();
+          const doc = await PDFLib.PDFDocument.load(bytes);
+          const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
+          copiedPages.forEach(p => mergedPdf.addPage(p));
+        }
+        const mergedBytes = await mergedPdf.save();
+        const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'pdf_combinado.pdf';
+        a.click();
+        showToast('PDFs combinados com sucesso!');
+        modalMerge.style.display = 'none';
+      } catch (err) {
+        showToast('Erro ao combinar arquivos.');
+      } finally {
+        hideProcessing();
+      }
+    };
+
+    document.getElementById('btn-compress').onclick = async () => {
+      if (!rawPdfBytes) return;
+      showProcessing('Otimizando tamanho...');
+      try {
+        const loadedPdf = await PDFLib.PDFDocument.load(rawPdfBytes);
+        const compressedBytes = await loadedPdf.save({ useObjectStreams: true });
+        const blob = new Blob([compressedBytes], { type: 'application/pdf' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'documento_compactado.pdf';
+        a.click();
+        showToast('PDF re-otimizado e salvo!');
+      } catch (err) {
+        showToast('Erro ao compactar.');
+      } finally {
+        hideProcessing();
+      }
+    };
+
+    fontFamilySelect.onchange = () => { if (activeBox) { saveUndoState(); activeBox.fontFamily = fontFamilySelect.value; renderPage(currentPageNum); } };
+    btnBoldToggle.onclick = () => { if (activeBox) { saveUndoState(); activeBox.isBold = !activeBox.isBold; renderPage(currentPageNum); } };
+    fontSizeInput.onchange = () => { if (activeBox) { saveUndoState(); activeBox.fontSize = parseInt(fontSizeInput.value, 10) || 11; renderPage(currentPageNum); } };
+
+    floatingBar.querySelectorAll('.color-dot').forEach(dot => {
+      dot.onclick = () => {
+        if (!activeBox) return;
+        saveUndoState();
+        const parts = dot.dataset.color.split(',').map(Number);
+        activeBox.color = { r: parts[0], g: parts[1], b: parts[2], hex: dot.style.background };
+        renderPage(currentPageNum);
+      };
+    });
+
+    const MAX_UNDO_STEPS = 25;
+
+    function saveUndoState() {
+      undoHistory.push(JSON.stringify(editsRegistry));
+      if (undoHistory.length > MAX_UNDO_STEPS) undoHistory.shift();
+      btnUndo.disabled = false;
+    }
+
+    function triggerUndo() {
+      if (undoHistory.length === 0) return;
+      editsRegistry = JSON.parse(undoHistory.pop());
+      renderPage(currentPageNum);
+      showToast("Ação desfeita.");
+    }
+
+    btnUndo.onclick = triggerUndo;
+
+    async function getEmbeddedFont(loadedPdf, fontKey, isBold) {
+      if (fontKey === 'Times') return isBold ? await loadedPdf.embedFont(PDFLib.StandardFonts.TimesRomanBold) : await loadedPdf.embedFont(PDFLib.StandardFonts.TimesRoman);
+      if (fontKey === 'Courier') return isBold ? await loadedPdf.embedFont(PDFLib.StandardFonts.CourierBold) : await loadedPdf.embedFont(PDFLib.StandardFonts.Courier);
+      return isBold ? await loadedPdf.embedFont(PDFLib.StandardFonts.HelveticaBold) : await loadedPdf.embedFont(PDFLib.StandardFonts.Helvetica);
+    }
+
+    async function compilePdf() {
+      const loadedPdf = await PDFLib.PDFDocument.load(rawPdfBytes);
+      
+      if (pdfMetaData.title) loadedPdf.setTitle(pdfMetaData.title);
+      if (pdfMetaData.author) loadedPdf.setAuthor(pdfMetaData.author);
+      if (pdfMetaData.subject) loadedPdf.setSubject(pdfMetaData.subject);
+      if (pdfMetaData.keywords) loadedPdf.setKeywords(pdfMetaData.keywords.split(',').map(k => k.trim()));
+
+      const pages = loadedPdf.getPages();
+
+      for (let idx = 0; idx < pages.length; idx++) {
+        const edits = editsRegistry[idx + 1];
+        if (!edits) continue;
+
+        const targetPage = pages[idx];
+        const { width: pWidth, height: pHeight } = targetPage.getSize();
+        const rx = pWidth / canvas.width, ry = pHeight / canvas.height;
+
+        for (const key in edits) {
+          const item = edits[key];
+          const pdfX = item.x * rx;
+          const pdfWidth = Math.min((item.width + 3) * rx, pWidth - pdfX);
+          const pdfHeight = (item.height + 2) * ry;
+          const pdfY = pHeight - ((item.y + item.height) * ry);
+
+          if (item.type === 'text') {
+            if (item.text === item.originalText) continue;
+            targetPage.drawRectangle({ x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight, color: PDFLib.rgb(1, 1, 1) });
+            if (item.text.trim()) {
+              const fontToUse = await getEmbeddedFont(loadedPdf, item.fontFamily, item.isBold);
+              const pdfFontSize = item.fontSize * ry * 0.92;
+              targetPage.drawText(item.text, {
+                x: pdfX + 1.5, y: pdfY + 1.2, size: pdfFontSize, font: fontToUse,
+                color: PDFLib.rgb(item.color.r, item.color.g, item.color.b),
+              });
+            }
+          } else if (item.type === 'erase') {
+            targetPage.drawRectangle({ x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight, color: PDFLib.rgb(1, 1, 1) });
+          } else if (item.type === 'image') {
+            const pngImage = await loadedPdf.embedPng(item.imgData);
+            targetPage.drawImage(pngImage, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
+          }
+        }
+      }
+      return await loadedPdf.save();
+    }
+
+    const modalAdDownload = document.getElementById('modal-ad-download');
+    const adTimerText = document.getElementById('ad-timer-text');
+    const btnSkipDownload = document.getElementById('btn-skip-download');
+
+    downloadBtn.onclick = async () => {
+      downloadBtn.disabled = true;
+      btnSkipDownload.style.display = 'none';
+      modalAdDownload.style.display = 'flex';
+
+      let timeLeft = 3;
+      adTimerText.style.display = 'block';
+      adTimerText.textContent = `Download iniciando em ${timeLeft} segundos...`;
+
+      const timer = setInterval(() => {
+        timeLeft--;
+        if (timeLeft > 0) {
+          adTimerText.textContent = `Download iniciando em ${timeLeft} segundos...`;
+        } else {
+          clearInterval(timer);
+          adTimerText.style.display = 'none';
+          btnSkipDownload.style.display = 'flex';
+          executeDownload();
+        }
+      }, 1000);
+    };
+
+    async function executeDownload() {
+      try {
+        const outBytes = await compilePdf();
+        const blob = new Blob([outBytes], { type: 'application/pdf' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'documento_editado.pdf';
+        link.click();
+        showToast("PDF baixado com sucesso!");
+      } catch (err) {
+        showToast("Erro ao compilar documento.");
+      } finally {
+        modalAdDownload.style.display = 'none';
+        downloadBtn.disabled = false;
+      }
+    }
+
+    function openLegalModal(type) {
+      const modal = document.getElementById('modal-legal');
+      const title = document.getElementById('legal-title');
+      const body = document.getElementById('legal-body');
+
+      if (type === 'privacidade') {
+        title.textContent = 'Política de Privacidade (LGPD & GDPR)';
+        body.innerHTML = '<p>Este site não coleta, armazena ou transmite nenhum arquivo PDF carregado pelo usuário. Todo o processamento de texto, metadados, assinaturas e OCR ocorre exclusivamente de maneira local, na memória do seu próprio navegador web.</p><p>Utilizamos cookies de terceiros (como o Google AdSense) para exibir anúncios relevantes ao usuário durante a navegação.</p>';
+      } else if (type === 'termos') {
+        title.textContent = 'Termos de Uso';
+        body.innerHTML = '<p>A ferramenta LocalPDF é disponibilizada gratuitamente para uso pessoal e comercial. O usuário é inteiramente responsável pelos direitos autorais e pelo conteúdo dos arquivos processados no sistema.</p>';
+      } else if (type === 'contato') {
+        title.textContent = 'Contato e Suporte';
+        body.innerHTML = '<p>Para dúvidas, relatar falhas ou sugestões de melhorias na aplicação, entre em contato com ANES (Antonio Neto E Souza) através do suporte da plataforma.</p>';
+      }
+      modal.style.display = 'flex';
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const manifestData = {
+          name: "LocalPDF",
+          short_name: "LocalPDF",
+          start_url: "./",
+          display: "standalone",
+          background_color: "#0f172a",
+          theme_color: "#2563eb",
+          description: "Editor e suíte de ferramentas PDF 100% privado e local."
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = manifestURL;
+        document.head.appendChild(manifestLink);
+
+        const swBlob = new Blob([`self.addEventListener('fetch', function(e) { e.respondWith(fetch(e.request)); });`], { type: 'text/javascript' });
+        navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
