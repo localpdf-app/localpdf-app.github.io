@@ -484,24 +484,15 @@
       async function contabilizarAcesso() {
         try {
           const { data, error } = await _supabase
-            .from('metricas')
-            .select('views')
-            .eq('id', 'localpdf')
-            .single();
+            .from('acessos')
+            .insert([{ acao: 'Acesso à página principal' }]);
 
           if (error) {
-            console.warn('[LocalPDF] Tabela métricas não acessível:', error.message);
+            console.warn('[LocalPDF] Erro ao registrar acesso:', error.message);
             return;
           }
 
-          const totalAtual = data ? data.views : 0;
-
-          await _supabase
-            .from('metricas')
-            .update({ views: totalAtual + 1 })
-            .eq('id', 'localpdf');
-
-          console.log(`[LocalPDF] Acesso registrado! Visitas até agora: ${totalAtual + 1}`);
+          console.log('[LocalPDF] Acesso registrado com sucesso!');
         } catch (err) {
           console.error('[LocalPDF] Erro de conexão com Supabase:', err);
         }
@@ -1388,20 +1379,3 @@
   </script>
 </body>
 </html>
-<!-- Biblioteca do Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-  // Conecta ao seu projeto
-  const SUPABASE_URL = 'https://nypljzrgsbmdqdhwuqlo.supabase.co';
-  const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANON_AQUI'; // Pegue em Settings > API no Supabase
-
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  // Envia a informação de acesso para a tabela
-  async function registrarAcesso() {
-    await supabase.from('acessos').insert([{ acao: 'Acesso ao site' }]);
-  }
-
-  window.addEventListener('DOMContentLoaded', registrarAcesso);
-</script>
