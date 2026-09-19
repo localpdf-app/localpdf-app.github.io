@@ -484,7 +484,7 @@
       async function contabilizarAcesso() {
         try {
           const { data, error } = await _supabase
-            .from('acessos')
+            .from('metricas')
             .insert([{ acao: 'Acesso à página principal' }]);
 
           if (error) {
@@ -492,7 +492,7 @@
             return;
           }
 
-          console.log('[LocalPDF] Acesso registrado com sucesso!');
+          console.log('[LocalPDF] Acesso registrado com sucesso na tabela metricas!');
         } catch (err) {
           console.error('[LocalPDF] Erro de conexão com Supabase:', err);
         }
