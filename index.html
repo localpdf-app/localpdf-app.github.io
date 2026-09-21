@@ -244,7 +244,7 @@
           <input type="file" id="file-input" accept="application/pdf">
         </label>
         <button id="btn-merge-modal" class="btn" title="Juntar Múltiplos PDFs">🧩 Juntar</button>
-        <button id="btn-compress" class="btn" disabled title="Reduzir Tamanho do Arquivo">⚡ Compactar</button>
+        <button id="btn-compress" class="btn" disabled title="Reduzir Tamanho do Arquivo (Compressão Profunda)">⚡ Compactar</button>
         <button id="btn-clear-doc" class="btn btn-red" disabled title="Limpar Tela">🧹 Limpar</button>
       </div>
 
@@ -389,7 +389,7 @@
           <ol>
             <li>Carregue seu PDF pesado clicando em <strong>📂 Abrir PDF</strong>.</li>
             <li>Clique no botão <strong>⚡ Compactar</strong> na barra superior.</li>
-            <li>O motor interno reestruturará os fluxos de dados do arquivo para reduzir o tamanho.</li>
+            <li>O motor de compressão profunda reamostrará as imagens e reduzirá significativamente o tamanho do arquivo.</li>
             <li>O arquivo otimizado será baixado automaticamente no seu dispositivo.</li>
           </ol>
         </div>
@@ -645,6 +645,7 @@
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
+    /* LIMITE ATUALIZADO PARA SUPORTAR ARQUIVOS GRANDES DE ATÉ 300MB */
     const MAX_FILE_SIZE_MB = 300;
 
     async function loadPdfFile(file) {
@@ -1372,20 +1373,54 @@
       }
     };
 
+    /* =======================================================
+       FUNÇÃO ATUALIZADA: COMPRESSÃO PROFUNDA VIA CANVAS
+       ======================================================= */
     document.getElementById('btn-compress').onclick = async () => {
-      if (!rawPdfBytes) return;
-      showProcessing('Otimizando tamanho...');
+      if (!pdfDoc) return;
+      showProcessing('Executando compressão profunda de imagens...');
+
       try {
-        const loadedPdf = await PDFLib.PDFDocument.load(rawPdfBytes);
-        const compressedBytes = await loadedPdf.save({ useObjectStreams: true });
+        const newPdf = await PDFLib.PDFDocument.create();
+
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+          showProcessing(`Compressão profunda: processando página ${i} de ${pdfDoc.numPages}...`);
+          
+          const page = await pdfDoc.getPage(i);
+          // Scale 1.15 reamostra as imagens garantindo excelente nitidez visual e queda massiva no peso
+          const viewport = page.getViewport({ scale: 1.15 });
+
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = viewport.width;
+          tempCanvas.height = viewport.height;
+          const tempCtx = tempCanvas.getContext('2d');
+
+          await page.render({ canvasContext: tempCtx, viewport: viewport }).promise;
+
+          // Converte a página em JPEG com qualidade otimizada a 65%
+          const imgDataUrl = tempCanvas.toDataURL('image/jpeg', 0.65);
+          const imgBytes = await fetch(imgDataUrl).then(res => res.arrayBuffer());
+
+          const embeddedImg = await newPdf.embedJpg(imgBytes);
+          const newPage = newPdf.addPage([viewport.width, viewport.height]);
+          newPage.drawImage(embeddedImg, {
+            x: 0,
+            y: 0,
+            width: viewport.width,
+            height: viewport.height,
+          });
+        }
+
+        const compressedBytes = await newPdf.save();
         const blob = new Blob([compressedBytes], { type: 'application/pdf' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'documento_compactado.pdf';
+        a.download = loadedFileName.replace('.pdf', '') + '_compactado.pdf';
         a.click();
-        showToast('PDF re-otimizado e salvo!');
+
+        showToast('PDF reduzido e baixado com sucesso!');
       } catch (err) {
-        showToast('Erro ao compactar.');
+        showToast('Erro ao realizar a compressão profunda.');
       } finally {
         hideProcessing();
       }
